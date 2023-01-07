@@ -1,50 +1,67 @@
 ﻿using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 
-namespace ICSharpCode.TreeView {
-	class SharpTreeViewItemAutomationPeer : FrameworkElementAutomationPeer, IExpandCollapseProvider {
-		internal SharpTreeViewItemAutomationPeer(SharpTreeViewItem owner) : base(owner) {
-			SharpTreeViewItem.DataContextChanged += OnDataContextChanged;
-			if (SharpTreeViewItem.DataContext is not SharpTreeNode node) return;
-			node.PropertyChanged += OnPropertyChanged;
-		}
+namespace ICSharpCode.TreeView;
 
-		SharpTreeViewItem SharpTreeViewItem => (SharpTreeViewItem)Owner;
+class SharpTreeViewItemAutomationPeer : FrameworkElementAutomationPeer, IExpandCollapseProvider
+{
+    internal SharpTreeViewItemAutomationPeer(SharpTreeViewItem owner) : base(owner)
+    {
+        SharpTreeViewItem.DataContextChanged += OnDataContextChanged;
+        if (SharpTreeViewItem.DataContext is not SharpTreeNode node) return;
 
-		protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.TreeItem;
+        node.PropertyChanged += OnPropertyChanged;
+    }
 
-		public override object GetPattern(PatternInterface patternInterface) =>
-			patternInterface == PatternInterface.ExpandCollapse ? this : base.GetPattern(patternInterface);
+    SharpTreeViewItem SharpTreeViewItem => (SharpTreeViewItem)Owner;
 
-		public void Collapse() { }
+    protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.TreeItem;
 
-		public void Expand() { }
+    public override object GetPattern(PatternInterface patternInterface) =>
+        patternInterface == PatternInterface.ExpandCollapse ? this : base.GetPattern(patternInterface);
 
-		public ExpandCollapseState ExpandCollapseState {
-			get {
-				if (SharpTreeViewItem.DataContext is not SharpTreeNode node || !node.ShowExpander)
-					return ExpandCollapseState.LeafNode;
-				return node.IsExpanded ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed;
-			}
-		}
+    public void Collapse()
+    {
+    }
 
-		void OnPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e) {
-			if (e.PropertyName != "IsExpanded") return;
-			if (sender is not SharpTreeNode node || node.Children.Count == 0) return;
-			bool newValue = node.IsExpanded;
-			bool oldValue = !newValue;
-			RaisePropertyChangedEvent(
-				ExpandCollapsePatternIdentifiers.ExpandCollapseStateProperty,
-				oldValue ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed,
-				newValue ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed);
-		}
+    public void Expand()
+    {
+    }
 
-		void OnDataContextChanged(object sender, System.Windows.DependencyPropertyChangedEventArgs e) {
-			if (e.OldValue is SharpTreeNode oldNode)
-				oldNode.PropertyChanged -= OnPropertyChanged;
-			if (e.NewValue is SharpTreeNode newNode)
-				newNode.PropertyChanged += OnPropertyChanged;
-		}
-	}
+    public ExpandCollapseState ExpandCollapseState
+    {
+        get
+        {
+            if (SharpTreeViewItem.DataContext is not SharpTreeNode node || !node.ShowExpander)
+                return ExpandCollapseState.LeafNode;
+
+            return node.IsExpanded ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed;
+        }
+    }
+
+    void OnPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != "IsExpanded") return;
+        if (sender is not SharpTreeNode node || node.Children.Count == 0) return;
+
+        bool newValue = node.IsExpanded;
+        bool oldValue = !newValue;
+        RaisePropertyChangedEvent(
+            ExpandCollapsePatternIdentifiers.ExpandCollapseStateProperty,
+            oldValue ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed,
+            newValue ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed);
+    }
+
+    void OnDataContextChanged(object sender, System.Windows.DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is SharpTreeNode oldNode)
+            oldNode.PropertyChanged -= OnPropertyChanged;
+
+        if (e.NewValue is SharpTreeNode newNode)
+            newNode.PropertyChanged += OnPropertyChanged;
+    }
 }

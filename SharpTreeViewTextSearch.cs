@@ -1,145 +1,170 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Threading;
 
-namespace ICSharpCode.TreeView {
-	/// <summary>
-	/// Custom TextSearch-implementation.
-	/// Fixes #67 - Moving to class member in tree view by typing in first character of member name selects parent assembly
-	/// </summary>
-	public class SharpTreeViewTextSearch : DependencyObject {
-		[DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
-		static extern int GetDoubleClickTime();
+namespace ICSharpCode.TreeView;
 
-		static readonly DependencyPropertyKey TextSearchInstancePropertyKey = DependencyProperty.RegisterAttachedReadOnly(
-			"TextSearchInstance",
-			typeof(SharpTreeViewTextSearch), typeof(SharpTreeViewTextSearch), new FrameworkPropertyMetadata(null));
+/// <summary>
+/// Custom TextSearch-implementation.
+/// Fixes #67 - Moving to class member in tree view by typing in first character of member name selects parent assembly
+/// </summary>
+public class SharpTreeViewTextSearch : AvaloniaObject
+{
+    [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
+    static extern int GetDoubleClickTime();
 
-		static readonly DependencyProperty TextSearchInstanceProperty = TextSearchInstancePropertyKey.DependencyProperty;
+    static readonly DependencyPropertyKey TextSearchInstancePropertyKey = DependencyProperty.RegisterAttachedReadOnly(
+        "TextSearchInstance",
+        typeof(SharpTreeViewTextSearch), typeof(SharpTreeViewTextSearch), new FrameworkPropertyMetadata(null));
 
-		DispatcherTimer timer;
+    static readonly DependencyProperty TextSearchInstanceProperty = TextSearchInstancePropertyKey.DependencyProperty;
 
-		bool isActive;
-		int lastMatchIndex;
-		string matchPrefix;
+    DispatcherTimer timer;
 
-		readonly Stack<string> inputStack;
-		readonly SharpTreeView treeView;
+    bool isActive;
+    int lastMatchIndex;
+    string matchPrefix;
 
-		SharpTreeViewTextSearch(SharpTreeView treeView) {
-			this.treeView = treeView ?? throw new ArgumentNullException(nameof(treeView));
-			inputStack = new Stack<string>(8);
-			ClearState();
-		}
+    readonly Stack<string> inputStack;
+    readonly SharpTreeView treeView;
 
-		public static SharpTreeViewTextSearch GetInstance(SharpTreeView sharpTreeView) {
-			var textSearch = (SharpTreeViewTextSearch)sharpTreeView.GetValue(TextSearchInstanceProperty);
-			if (textSearch == null) {
-				textSearch = new SharpTreeViewTextSearch(sharpTreeView);
-				sharpTreeView.SetValue(TextSearchInstancePropertyKey, textSearch);
-			}
+    SharpTreeViewTextSearch(SharpTreeView treeView)
+    {
+        this.treeView = treeView ?? throw new ArgumentNullException(nameof(treeView));
+        inputStack = new Stack<string>(8);
+        ClearState();
+    }
 
-			return textSearch;
-		}
+    public static SharpTreeViewTextSearch GetInstance(SharpTreeView sharpTreeView)
+    {
+        var textSearch = (SharpTreeViewTextSearch)sharpTreeView.GetValue(TextSearchInstanceProperty);
 
-		public bool RevertLastCharacter() {
-			if (!isActive || inputStack.Count == 0)
-				return false;
-			matchPrefix = matchPrefix.Substring(0, matchPrefix.Length - inputStack.Pop().Length);
-			ResetTimeout();
-			return true;
-		}
+        if (textSearch == null)
+        {
+            textSearch = new SharpTreeViewTextSearch(sharpTreeView);
+            sharpTreeView.SetValue(TextSearchInstancePropertyKey, textSearch);
+        }
 
-		public bool Search(string nextChar) {
-			int startIndex = isActive ? lastMatchIndex : Math.Max(0, treeView.SelectedIndex);
-			bool lookBackwards = inputStack.Count > 0 &&
-								 string.Compare(inputStack.Peek(), nextChar, StringComparison.OrdinalIgnoreCase) == 0;
-			int nextMatchIndex = IndexOfMatch(matchPrefix + nextChar, startIndex, lookBackwards, out bool wasNewCharUsed);
-			if (nextMatchIndex != -1) {
-				if (!isActive || nextMatchIndex != startIndex) {
-					treeView.SelectedItem = treeView.Items[nextMatchIndex];
-					treeView.FocusNode((SharpTreeNode)treeView.SelectedItem);
-					lastMatchIndex = nextMatchIndex;
-				}
+        return textSearch;
+    }
 
-				if (wasNewCharUsed) {
-					matchPrefix += nextChar;
-					inputStack.Push(nextChar);
-				}
+    public bool RevertLastCharacter()
+    {
+        if (!isActive || inputStack.Count == 0)
+            return false;
 
-				isActive = true;
-			}
+        matchPrefix = matchPrefix.Substring(0, matchPrefix.Length - inputStack.Pop().Length);
+        ResetTimeout();
+        return true;
+    }
 
-			if (isActive) {
-				ResetTimeout();
-			}
+    public bool Search(string nextChar)
+    {
+        int startIndex = isActive ? lastMatchIndex : Math.Max(0, treeView.SelectedIndex);
+        bool lookBackwards = inputStack.Count > 0 &&
+                             string.Compare(inputStack.Peek(), nextChar, StringComparison.OrdinalIgnoreCase) == 0;
+        int nextMatchIndex = IndexOfMatch(matchPrefix + nextChar, startIndex, lookBackwards, out bool wasNewCharUsed);
 
-			return nextMatchIndex != -1;
-		}
+        if (nextMatchIndex != -1)
+        {
+            if (!isActive || nextMatchIndex != startIndex)
+            {
+                treeView.SelectedItem = treeView.Items[nextMatchIndex];
+                treeView.FocusNode((SharpTreeNode)treeView.SelectedItem);
+                lastMatchIndex = nextMatchIndex;
+            }
 
-		int IndexOfMatch(string needle, int startIndex, bool tryBackward, out bool charWasUsed) {
-			charWasUsed = false;
-			if (treeView.Items.Count == 0 || string.IsNullOrEmpty(needle))
-				return -1;
-			int index = -1;
-			int fallbackIndex = -1;
-			bool fallbackMatch = false;
-			int i = startIndex;
-			var comparisonType = treeView.IsTextSearchCaseSensitive
-				? StringComparison.Ordinal
-				: StringComparison.OrdinalIgnoreCase;
-			do {
-				var item = (SharpTreeNode)treeView.Items[i];
-				if (item != null && item.Text != null) {
-					string text = item.Text.ToString();
-					if (text.StartsWith(needle, comparisonType)) {
-						charWasUsed = true;
-						index = i;
-						break;
-					}
+            if (wasNewCharUsed)
+            {
+                matchPrefix += nextChar;
+                inputStack.Push(nextChar);
+            }
 
-					if (tryBackward) {
-						if (fallbackMatch && matchPrefix != string.Empty) {
-							if (fallbackIndex == -1 && text.StartsWith(matchPrefix, comparisonType)) {
-								fallbackIndex = i;
-							}
-						}
-						else {
-							fallbackMatch = true;
-						}
-					}
-				}
+            isActive = true;
+        }
 
-				i++;
-				if (i >= treeView.Items.Count)
-					i = 0;
-			} while (i != startIndex);
+        if (isActive)
+        {
+            ResetTimeout();
+        }
 
-			return index == -1 ? fallbackIndex : index;
-		}
+        return nextMatchIndex != -1;
+    }
 
-		void ClearState() {
-			isActive = false;
-			matchPrefix = string.Empty;
-			lastMatchIndex = -1;
-			inputStack.Clear();
-			timer?.Stop();
-			timer = null;
-		}
+    int IndexOfMatch(string needle, int startIndex, bool tryBackward, out bool charWasUsed)
+    {
+        charWasUsed = false;
+        if (treeView.Items.Count == 0 || string.IsNullOrEmpty(needle))
+            return -1;
 
-		void ResetTimeout() {
-			if (timer == null) {
-				timer = new DispatcherTimer(DispatcherPriority.Normal);
-				timer.Tick += (_, _) => ClearState();
-			}
-			else {
-				timer.Stop();
-			}
+        int index = -1;
+        int fallbackIndex = -1;
+        bool fallbackMatch = false;
+        int i = startIndex;
+        var comparisonType = treeView.IsTextSearchCaseSensitive
+            ? StringComparison.Ordinal
+            : StringComparison.OrdinalIgnoreCase;
 
-			timer.Interval = TimeSpan.FromMilliseconds(GetDoubleClickTime() * 2);
-			timer.Start();
-		}
-	}
+        do
+        {
+            var item = (SharpTreeNode)treeView.Items[i];
+
+            if (item != null && item.Text != null)
+            {
+                string text = item.Text.ToString();
+
+                if (text.StartsWith(needle, comparisonType))
+                {
+                    charWasUsed = true;
+                    index = i;
+                    break;
+                }
+
+                if (tryBackward)
+                {
+                    if (fallbackMatch && matchPrefix != string.Empty)
+                    {
+                        if (fallbackIndex == -1 && text.StartsWith(matchPrefix, comparisonType))
+                            fallbackIndex = i;
+                    }
+                    else
+                    {
+                        fallbackMatch = true;
+                    }
+                }
+            }
+
+            i++;
+            if (i >= treeView.Items.Count)
+                i = 0;
+        } while (i != startIndex);
+
+        return index == -1 ? fallbackIndex : index;
+    }
+
+    void ClearState()
+    {
+        isActive = false;
+        matchPrefix = string.Empty;
+        lastMatchIndex = -1;
+        inputStack.Clear();
+        timer?.Stop();
+        timer = null;
+    }
+
+    void ResetTimeout()
+    {
+        if (timer == null)
+        {
+            timer = new DispatcherTimer(DispatcherPriority.Normal);
+            timer.Tick += (_, _) => ClearState();
+        }
+        else
+            timer.Stop();
+
+        timer.Interval = TimeSpan.FromMilliseconds(GetDoubleClickTime() * 2);
+        timer.Start();
+    }
 }

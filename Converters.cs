@@ -2,33 +2,26 @@
 // This code is distributed under the GNU LGPL (for details please see \doc\license.txt)
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Windows;
-using System.Windows.Markup;
-using System.Windows.Data;
 using System.Globalization;
+using Avalonia.Data.Converters;
+using Avalonia.Markup.Xaml;
 
-namespace ICSharpCode.TreeView
+namespace ICSharpCode.TreeView;
+
+public class CollapsedWhenFalse : MarkupExtension, IValueConverter
 {
-	public class CollapsedWhenFalse : MarkupExtension, IValueConverter
-	{
-		public static CollapsedWhenFalse Instance = new CollapsedWhenFalse();
+    public static CollapsedWhenFalse Instance = new();
 
-		public override object ProvideValue(IServiceProvider serviceProvider)
-		{
-			return Instance;
-		}
+    public override object ProvideValue(IServiceProvider serviceProvider) => Instance;
 
-		public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-		{
-			return (bool)value ? Visibility.Visible : Visibility.Collapsed;
-		}
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+        // return (bool)value
+        //     ? Visibility.Visible
+        //     : Visibility.Collapsed;
+    }
 
-		public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-		{
-			throw new NotImplementedException();
-		}
-	}
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotImplementedException();
 }

@@ -50,7 +50,7 @@ namespace ICSharpCode.TreeView
 		{
 			if (node == null)
 				throw new ArgumentNullException("node");
-			if (node.modelParent != null)
+			if (node.ModelParent != null)
 				throw new ArgumentException("The node already has a parent", "node");
 		}
 		
@@ -79,7 +79,7 @@ namespace ICSharpCode.TreeView
 		
 		public int IndexOf(SharpTreeNode node)
 		{
-			if (node == null || node.modelParent != parent)
+			if (node == null || node.ModelParent != parent)
 				return -1;
 			else
 				return list.IndexOf(node);

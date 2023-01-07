@@ -25,142 +25,125 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 
-namespace ICSharpCode.TreeView {
-	struct ObjectChangedEventArgs {
-		public SharpTreeNode OldNode { get; }
-		public SharpTreeNode NewNode { get; }
-		public ObjectChangedEventArgs(SharpTreeNode oldNode, SharpTreeNode newNode) {
-			OldNode = oldNode;
-			NewNode = newNode;
-		}
-	}
+namespace ICSharpCode.TreeView;
 
-	internal class SharpTreeNodeProxy : CustomTypeDescriptor {
-		static SharpTreeNodeProxy() {
-			descMap = new Dictionary<string, IPropDesc>();
-			AddPropertyDesc("Foreground", node => node.Foreground);
-			AddPropertyDesc("IsExpanded", node => node.IsExpanded, (node, value) => node.IsExpanded = value);
-			AddPropertyDesc("IsChecked", node => node.IsChecked, (node, value) => node.IsChecked = value);
-			AddPropertyDesc("ToolTip", node => node.ToolTip);
-			AddPropertyDesc("Icon", node => node.Icon);
-			AddPropertyDesc("Text", node => node.Text);
-			AddPropertyDesc("IsEditing", node => node.IsEditing, (node, value) => node.IsEditing = value);
-			AddPropertyDesc("ShowIcon", node => node.ShowIcon);
-			AddPropertyDesc("ShowExpander", node => node.ShowExpander);
-			AddPropertyDesc("ExpandedIcon", node => node.ExpandedIcon);
-			AddPropertyDesc("IsCheckable", node => node.IsCheckable);
-			AddPropertyDesc("IsCut", node => node.IsCut);
-			descs = new PropertyDescriptorCollection(descMap.Values.Cast<PropertyDescriptor>().ToArray());
-		}
+internal struct ObjectChangedEventArgs
+{
+    public SharpTreeNode OldNode { get; }
 
-		static readonly PropertyDescriptorCollection descs;
-		static readonly Dictionary<string, IPropDesc> descMap;
+    public SharpTreeNode NewNode { get; }
 
-		static void AddPropertyDesc<T>(string name, Func<SharpTreeNode, T> getter, Action<SharpTreeNode, T> setter = null) {
-			var desc = new PropDesc<T>(name, getter, setter);
-			descMap.Add(name, desc);
-		}
+    public ObjectChangedEventArgs(SharpTreeNode oldNode, SharpTreeNode newNode)
+    {
+        OldNode = oldNode;
+        NewNode = newNode;
+    }
+}
 
-		public SharpTreeNodeProxy(SharpTreeNode obj) {
-			UpdateObject(obj);
-		}
+internal class SharpTreeNodeProxy : CustomTypeDescriptor
+{
+    static SharpTreeNodeProxy()
+    {
+        DescMap = new Dictionary<string, IPropDesc>();
+        AddPropertyDesc("Foreground", node => node.Foreground);
+        AddPropertyDesc("IsExpanded", node => node.IsExpanded, (node, value) => node.IsExpanded = value);
+        AddPropertyDesc("IsChecked", node => node.IsChecked, (node, value) => node.IsChecked = value);
+        AddPropertyDesc("ToolTip", node => node.ToolTip);
+        AddPropertyDesc("Icon", node => node.Icon);
+        AddPropertyDesc("Text", node => node.Text);
+        AddPropertyDesc("IsEditing", node => node.IsEditing, (node, value) => node.IsEditing = value);
+        AddPropertyDesc("ShowIcon", node => node.ShowIcon);
+        AddPropertyDesc("ShowExpander", node => node.ShowExpander);
+        AddPropertyDesc("ExpandedIcon", node => node.ExpandedIcon);
+        AddPropertyDesc("IsCheckable", node => node.IsCheckable);
+        AddPropertyDesc("IsCut", node => node.IsCut);
+        Descs = new PropertyDescriptorCollection(DescMap.Values.Cast<PropertyDescriptor>().ToArray());
+    }
 
-		public void UpdateObject(SharpTreeNode obj) {
-			if (Object == obj)
-				return;
+    private static readonly PropertyDescriptorCollection Descs;
+    private static readonly Dictionary<string, IPropDesc> DescMap;
 
-			if (Object != null)
-				Object.PropertyChanged -= OnPropertyChanged;
+    static void AddPropertyDesc<T>(string name, Func<SharpTreeNode, T> getter, Action<SharpTreeNode, T> setter = null)
+    {
+        var desc = new PropDesc<T>(name, getter, setter);
+        DescMap.Add(name, desc);
+    }
 
-			var oldNode = Object;
-			Object = obj;
+    public SharpTreeNodeProxy(SharpTreeNode obj) => UpdateObject(obj);
 
-			if (obj == null)
-				IsNull = true;
-			else {
-				IsNull = false;
-				obj.PropertyChanged += OnPropertyChanged;
+    public void UpdateObject(SharpTreeNode obj)
+    {
+        if (Object == obj)
+            return;
 
-				foreach (var desc in descMap) {
-					desc.Value.OnValueChanged(this);
-				}
-			}
+        if (Object != null)
+            Object.PropertyChanged -= OnPropertyChanged;
 
-			if (ObjectChanged != null)
-				ObjectChanged(this, new ObjectChangedEventArgs(oldNode, obj));
-		}
+        var oldNode = Object;
+        Object = obj;
 
-		void OnPropertyChanged(object sender, PropertyChangedEventArgs e) {
-			IPropDesc desc;
-			if (descMap.TryGetValue(e.PropertyName, out desc))
-				desc.OnValueChanged(this);
-		}
+        if (obj == null)
+            IsNull = true;
+        else
+        {
+            IsNull = false;
+            obj.PropertyChanged += OnPropertyChanged;
 
-		public event EventHandler<ObjectChangedEventArgs> ObjectChanged;
+            foreach (var desc in DescMap) desc.Value.OnValueChanged(this);
+        }
 
-		public bool IsNull { get; private set; }
-		public SharpTreeNode Object { get; private set; }
+        ObjectChanged?.Invoke(this, new ObjectChangedEventArgs(oldNode, obj));
+    }
 
-		public override PropertyDescriptorCollection GetProperties() {
-			return descs;
-		}
+    void OnPropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (DescMap.TryGetValue(e.PropertyName, out var desc))
+            desc.OnValueChanged(this);
+    }
 
-		public override PropertyDescriptorCollection GetProperties(Attribute[] attributes) {
-			return GetProperties();
-		}
+    public event EventHandler<ObjectChangedEventArgs> ObjectChanged;
 
-		interface IPropDesc {
-			void OnValueChanged(object component);
-		}
+    public bool IsNull { get; private set; }
 
-		class PropDesc<T> : PropertyDescriptor, IPropDesc {
-			readonly Func<SharpTreeNode, T> getter;
-			readonly Action<SharpTreeNode, T> setter;
+    public SharpTreeNode Object { get; private set; }
 
-			public PropDesc(string name, Func<SharpTreeNode, T> getter, Action<SharpTreeNode, T> setter)
-				: base(name, null) {
-				this.getter = getter;
-				this.setter = setter;
-			}
+    public override PropertyDescriptorCollection GetProperties() => Descs;
 
-			public override object GetValue(object component) {
-				return getter(((SharpTreeNodeProxy)component).Object);
-			}
+    public override PropertyDescriptorCollection GetProperties(Attribute[] attributes) => GetProperties();
 
-			public override bool IsReadOnly {
-				get {
-					return setter == null;
-					;
-				}
-			}
+    private interface IPropDesc
+    {
+        void OnValueChanged(object component);
+    }
 
-			public override Type PropertyType {
-				get { return typeof(T); }
-			}
+    private class PropDesc<T> : PropertyDescriptor, IPropDesc
+    {
+        private readonly Func<SharpTreeNode, T> _getter;
+        private readonly Action<SharpTreeNode, T> _setter;
 
-			public override void SetValue(object component, object value) {
-				setter(((SharpTreeNodeProxy)component).Object, (T)value);
-			}
+        public PropDesc(string name, Func<SharpTreeNode, T> getter, Action<SharpTreeNode, T> setter)
+            : base(name, null)
+        {
+            _getter = getter;
+            _setter = setter;
+        }
 
-			public void OnValueChanged(object component) {
-				OnValueChanged(component, new PropertyChangedEventArgs(Name));
-			}
+        public override object GetValue(object component) => _getter(((SharpTreeNodeProxy)component).Object);
 
-			public override bool CanResetValue(object component) {
-				return false;
-			}
+        public override bool IsReadOnly => _setter == null;
 
-			public override bool ShouldSerializeValue(object component) {
-				return false;
-			}
+        public override Type PropertyType => typeof(T);
 
-			public override void ResetValue(object component) {
-				throw new NotSupportedException();
-			}
+        public override void SetValue(object component, object value) => _setter(((SharpTreeNodeProxy)component).Object, (T)value);
 
-			public override Type ComponentType {
-				get { return null; }
-			}
-		}
-	}
+        public void OnValueChanged(object component) => OnValueChanged(component, new PropertyChangedEventArgs(Name));
+
+        public override bool CanResetValue(object component) => false;
+
+        public override bool ShouldSerializeValue(object component) => false;
+
+        public override void ResetValue(object component) => throw new NotSupportedException();
+
+        public override Type ComponentType => null;
+    }
 }

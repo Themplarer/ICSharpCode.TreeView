@@ -8,24 +8,17 @@ using System.Text;
 using System.Windows.Controls;
 using System.Windows;
 
-namespace ICSharpCode.TreeView
+namespace ICSharpCode.TreeView;
+
+public class SharpGridView : GridView
 {
-	public class SharpGridView : GridView
+	static SharpGridView()
 	{
-		static SharpGridView()
-		{
-			ItemContainerStyleKey =
-				new ComponentResourceKey(typeof(SharpTreeView), "GridViewItemContainerStyleKey");
-		}
-
-		public static ResourceKey ItemContainerStyleKey { get; private set; }
-
-		protected override object ItemContainerDefaultStyleKey
-		{
-			get
-			{
-				return ItemContainerStyleKey;
-			}
-		}
+		ItemContainerStyleKey =
+			new ComponentResourceKey(typeof(SharpTreeView), "GridViewItemContainerStyleKey");
 	}
+
+	public static ResourceKey ItemContainerStyleKey { get; private set; }
+
+	protected override object ItemContainerDefaultStyleKey => ItemContainerStyleKey;
 }
